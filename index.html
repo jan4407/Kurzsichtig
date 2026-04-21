@@ -91,6 +91,16 @@ canvas { width:50%; height:100%; display:block; }
   flex:1; padding:9px; font-size:13px; border-radius:8px; cursor:pointer;
   background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.25); color:#fff;
 }
+#dpt-display {
+  position:absolute; top:8%; left:0; right:0;
+  display:flex; justify-content:space-between;
+  pointer-events:none; z-index:20; padding:0 18px;
+}
+#dpt-display span {
+  font-size:13px; color:rgba(255,255,255,0.55);
+  background:rgba(0,0,0,0.3); padding:4px 10px;
+  border-radius:10px; letter-spacing:0.04em;
+}
 #error-msg {
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
   color:#f88; font-size:14px; text-align:center; padding:16px; display:none;
@@ -113,6 +123,11 @@ canvas { width:50%; height:100%; display:block; }
   <canvas id="left"></canvas>
   <div id="divider"></div>
   <canvas id="right"></canvas>
+
+  <div id="dpt-display">
+    <span id="dpt-left"></span>
+    <span id="dpt-right"></span>
+  </div>
 
   <!-- Durchschalt-Knopf -->
   <div id="step-btn">
@@ -194,6 +209,9 @@ function updateStepBtn() {
   const mx = maxDpt[mode] || 0;
   stepHint.textContent = (mode==='normal') ? 'Modus wählen' :
     (dpt >= mx) ? 'Maximum erreicht' : 'tippen → +0,5 dpt';
+  const txt = (mode==='normal' || dpt===0) ? '' : formatDpt(dpt);
+  document.getElementById('dpt-left').textContent = txt;
+  document.getElementById('dpt-right').textContent = txt;
 }
 
 stepBtn.onclick = () => {
@@ -270,7 +288,7 @@ function dptToRadius(base) {
 function applyEffect(ctx, w, h) {
   if (mode==='normal' || dpt===0) return;
   if (mode==='myopie') {
-    stackBlur(ctx, w, h, dptToRadius(20));
+    stackBlur(ctx, w, h, dptToRadius(11));
   } else if (mode==='hyperopie') {
     stackBlur(ctx, w, h, dptToRadius(16));
     const s = dpt / (maxDpt.hyperopie||1);
