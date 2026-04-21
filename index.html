@@ -94,7 +94,7 @@ canvas { width:50%; height:100%; display:block; }
 #dpt-display {
   position:absolute; top:80%; left:0; right:0;
   display:flex; justify-content:space-between;
-  pointer-events:none; z-index:20; padding:0 50px;
+  pointer-events:none; z-index:20; padding:0 100px;
 }
 #dpt-display span {
   font-size:13px; color:rgba(255,255,255,0.55);
@@ -187,7 +187,7 @@ const stepLabel = document.getElementById('step-label');
 const stepValue = document.getElementById('step-value');
 const stepHint = document.getElementById('step-hint');
 
-let stream=null, facingMode='environment', ipd=30, animId=null;
+let stream=null, facingMode='environment', ipd=0, animId=null;
 let mode='normal', dpt=0;
 
 // Maximale dpt je Modus
