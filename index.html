@@ -9,7 +9,6 @@
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:#000; color:#fff; font-family:sans-serif; overflow:hidden; width:100vw; height:100vh; }
-
 #start-screen {
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   height:100vh; gap:16px; padding:24px; text-align:center;
@@ -26,7 +25,6 @@ body { background:#000; color:#fff; font-family:sans-serif; overflow:hidden; wid
   margin-top:8px; padding:14px 36px; font-size:16px;
   background:#fff; color:#000; border:none; border-radius:8px; cursor:pointer; font-weight:500;
 }
-
 #vr-container { display:none; width:100vw; height:100vh; position:relative; }
 #vr-container.active { display:flex; }
 canvas { width:50%; height:100%; display:block; }
@@ -34,16 +32,12 @@ canvas { width:50%; height:100%; display:block; }
   position:absolute; left:50%; top:0; width:3px; height:100%;
   background:#000; transform:translateX(-50%); z-index:10;
 }
-
-/* Menu toggle button at ~72% height */
 #menu-btn {
-  position:absolute; left:50%; top:72%; transform:translate(-50%,-50%);
+  position:absolute; left:50%; top:28%; transform:translate(-50%,-50%);
   z-index:30; background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.3);
   color:#fff; font-size:13px; padding:8px 22px; border-radius:20px; cursor:pointer;
   backdrop-filter:blur(4px); white-space:nowrap;
 }
-
-/* Slide-up menu panel */
 #menu-panel {
   position:absolute; bottom:0; left:0; right:0; z-index:40;
   background:rgba(10,10,10,0.92); backdrop-filter:blur(8px);
@@ -53,17 +47,13 @@ canvas { width:50%; height:100%; display:block; }
   transition:transform 0.3s ease;
 }
 #menu-panel.open { transform:translateY(0); }
-
 .menu-close {
   position:absolute; top:12px; right:16px;
   background:none; border:none; color:#aaa; font-size:20px; cursor:pointer; line-height:1;
 }
-
 .menu-section { margin-bottom:18px; }
 .menu-section:last-child { margin-bottom:0; }
 .menu-label { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:10px; }
-
-/* Mode buttons */
 .mode-row { display:flex; gap:8px; flex-wrap:wrap; }
 .mode-btn {
   padding:7px 14px; font-size:13px; border-radius:16px; cursor:pointer;
@@ -71,20 +61,15 @@ canvas { width:50%; height:100%; display:block; }
   transition:background 0.15s, color 0.15s;
 }
 .mode-btn.active { background:#fff; color:#000; border-color:#fff; }
-
-/* Sliders */
 .slider-row { display:flex; align-items:center; gap:10px; }
 .slider-row label { font-size:13px; color:#ccc; min-width:60px; }
 .slider-row input[type=range] { flex:1; accent-color:#fff; }
-.slider-row span { font-size:13px; color:#fff; min-width:38px; text-align:right; }
-
-/* Bottom action row */
+.slider-row span { font-size:13px; color:#fff; min-width:60px; text-align:right; }
 .action-row { display:flex; gap:10px; margin-top:4px; }
 .action-btn {
   flex:1; padding:9px; font-size:13px; border-radius:8px; cursor:pointer;
   background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.25); color:#fff;
 }
-
 #error-msg {
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
   color:#f88; font-size:14px; text-align:center; padding:16px; display:none;
@@ -129,12 +114,12 @@ canvas { width:50%; height:100%; display:block; }
       <div class="slider-row">
         <label>Stärke</label>
         <input type="range" id="strength-slider" min="0" max="100" value="50" step="1">
-        <span id="strength-val">50%</span>
+        <span id="strength-val">—</span>
       </div>
       <div class="slider-row" style="margin-top:10px;">
         <label>Versatz</label>
         <input type="range" id="ipd-slider" min="0" max="80" value="30" step="1">
-        <span id="ipd-val">30px</span>
+        <span id="ipd-val">30 px</span>
       </div>
     </div>
 
@@ -160,44 +145,65 @@ const lX = lC.getContext('2d');
 const rX = rC.getContext('2d');
 const off = document.getElementById('offscreen');
 const oX = off.getContext('2d');
+const errMsg = document.getElementById('error-msg');
 
 let stream=null, facingMode='environment', ipd=30, animId=null;
 let mode='normal', strength=50;
 
-// Menu toggle
-const menuBtn = document.getElementById('menu-btn');
-const menuPanel = document.getElementById('menu-panel');
-menuBtn.onclick = () => menuPanel.classList.toggle('open');
-document.getElementById('menu-close').onclick = () => menuPanel.classList.remove('open');
+// Dioptrienbezeichnung je Modus
+function dptLabel(s) {
+  const t = s/100;
+  if (mode==='myopie')        return (-0.5 - t*5.5).toFixed(1) + ' dpt';
+  if (mode==='hyperopie')     return '+' + (0.5 + t*3.5).toFixed(1) + ' dpt';
+  if (mode==='astigmatismus') return 'Zyl. ' + (0.5 + t*3.5).toFixed(1) + ' dpt';
+  if (mode==='katarakt')      return 'Grad ' + (1 + t*3).toFixed(1);
+  return '—';
+}
 
-// Mode buttons
+const strengthVal = document.getElementById('strength-val');
+const strengthSlider = document.getElementById('strength-slider');
+const ipdVal = document.getElementById('ipd-val');
+const ipdSlider = document.getElementById('ipd-slider');
+
+function updateStrengthLabel() {
+  strengthVal.textContent = mode==='normal' ? '—' : dptLabel(strength);
+}
+
+strengthSlider.oninput = () => {
+  strength = +strengthSlider.value;
+  updateStrengthLabel();
+};
+
+ipdSlider.oninput = () => {
+  ipd = +ipdSlider.value;
+  ipdVal.textContent = ipd + ' px';
+};
+
 document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     mode = btn.dataset.mode;
+    updateStrengthLabel();
   };
 });
 
-const strengthSlider = document.getElementById('strength-slider');
-const strengthVal = document.getElementById('strength-val');
-strengthSlider.oninput = () => { strength = +strengthSlider.value; strengthVal.textContent = strength + '%'; };
-
-const ipdSlider = document.getElementById('ipd-slider');
-const ipdVal = document.getElementById('ipd-val');
-ipdSlider.oninput = () => { ipd = +ipdSlider.value; ipdVal.textContent = ipd + 'px'; };
+document.getElementById('menu-btn').onclick = () =>
+  document.getElementById('menu-panel').classList.toggle('open');
+document.getElementById('menu-close').onclick = () =>
+  document.getElementById('menu-panel').classList.remove('open');
 
 document.getElementById('start-btn').onclick = () => startCamera();
 document.getElementById('flip-btn').onclick = () => {
   facingMode = facingMode==='environment' ? 'user' : 'environment';
-  menuPanel.classList.remove('open');
+  document.getElementById('menu-panel').classList.remove('open');
   startCamera();
 };
 document.getElementById('exit-btn').onclick = () => {
   stopCamera();
   document.getElementById('vr-container').classList.remove('active');
   document.getElementById('start-screen').style.display='flex';
-  menuPanel.classList.remove('open');
+  document.getElementById('menu-panel').classList.remove('open');
 };
 
 async function startCamera() {
@@ -221,7 +227,7 @@ async function startCamera() {
 }
 
 function resizeCanvases() {
-  const w = window.innerWidth/2, h = window.innerHeight;
+  const w=window.innerWidth/2, h=window.innerHeight;
   lC.width=w; lC.height=h; rC.width=w; rC.height=h;
   off.width=w; off.height=h;
 }
@@ -229,70 +235,50 @@ function resizeCanvases() {
 function applyEffect(ctx, w, h) {
   if (mode==='normal' || strength===0) return;
   const s = strength/100;
-
   if (mode==='myopie') {
-    // Uniform blur, stronger with strength
-    const radius = Math.round(s * 18);
-    stackBlur(ctx, w, h, radius);
-  }
-  else if (mode==='hyperopie') {
-    // Blur center, leave edges sharper via radial gradient overlay
-    const radius = Math.round(s * 14);
-    stackBlur(ctx, w, h, radius);
-    // lighten center slightly to mimic near blur
+    stackBlur(ctx, w, h, Math.round(s*18));
+  } else if (mode==='hyperopie') {
+    stackBlur(ctx, w, h, Math.round(s*14));
     const g = ctx.createRadialGradient(w/2,h/2,0, w/2,h/2,Math.min(w,h)*0.5);
     g.addColorStop(0, `rgba(255,255,255,${s*0.18})`);
     g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
-  }
-  else if (mode==='astigmatismus') {
-    // Directional blur: horizontal smear
-    const radius = Math.round(s * 16);
-    stackBlurH(ctx, w, h, radius);
-  }
-  else if (mode==='katarakt') {
-    // Blur + milky white veil + contrast reduction
-    const radius = Math.round(s * 12);
-    stackBlur(ctx, w, h, radius);
-    ctx.fillStyle = `rgba(220,210,190,${s*0.45})`;
+  } else if (mode==='astigmatismus') {
+    stackBlurH(ctx, w, h, Math.round(s*16));
+  } else if (mode==='katarakt') {
+    stackBlur(ctx, w, h, Math.round(s*12));
+    ctx.fillStyle=`rgba(220,210,190,${s*0.45})`;
     ctx.fillRect(0,0,w,h);
   }
 }
 
-// Minimal stack blur (box blur approximation, 3 passes)
 function stackBlur(ctx, w, h, r) {
-  if (r < 1) return;
-  for (let i=0; i<3; i++) {
-    boxBlur(ctx, w, h, r, false);
-    boxBlur(ctx, w, h, r, true);
-  }
+  if (r<1) return;
+  for (let i=0;i<3;i++) { boxBlur(ctx,w,h,r,false); boxBlur(ctx,w,h,r,true); }
 }
 function stackBlurH(ctx, w, h, r) {
-  if (r < 1) return;
-  for (let i=0; i<3; i++) boxBlur(ctx, w, h, r*2, false);
+  if (r<1) return;
+  for (let i=0;i<3;i++) boxBlur(ctx,w,h,r*2,false);
 }
-
 function boxBlur(ctx, w, h, r, vertical) {
   const d = ctx.getImageData(0,0,w,h);
   const src = new Uint8ClampedArray(d.data);
   const data = d.data;
   const len = vertical ? h : w;
   const stride = vertical ? w*4 : 4;
-  const step = vertical ? 4 : w*4;
-  const size = 2*r+1;
-
-  for (let i=0; i < (vertical ? w : h); i++) {
-    let ri=0, gi=0, bi=0, cnt=0;
+  for (let i=0; i<(vertical?w:h); i++) {
+    let ri=0,gi=0,bi=0;
     const base = vertical ? i*4 : i*w*4;
-    for (let j=-r; j<=r; j++) {
-      const idx = base + Math.max(0,Math.min(len-1,j))*stride;
-      ri+=src[idx]; gi+=src[idx+1]; bi+=src[idx+2]; cnt++;
+    for (let j=-r;j<=r;j++) {
+      const idx=base+Math.max(0,Math.min(len-1,j))*stride;
+      ri+=src[idx]; gi+=src[idx+1]; bi+=src[idx+2];
     }
-    for (let j=0; j<len; j++) {
-      const idx = base + j*stride;
+    const cnt=2*r+1;
+    for (let j=0;j<len;j++) {
+      const idx=base+j*stride;
       data[idx]=ri/cnt; data[idx+1]=gi/cnt; data[idx+2]=bi/cnt;
-      const add = base + Math.min(len-1,j+r+1)*stride;
-      const rem = base + Math.max(0,j-r)*stride;
+      const add=base+Math.min(len-1,j+r+1)*stride;
+      const rem=base+Math.max(0,j-r)*stride;
       ri+=src[add]-src[rem]; gi+=src[add+1]-src[rem+1]; bi+=src[add+2]-src[rem+2];
     }
   }
@@ -303,27 +289,24 @@ function render() {
   if (vid.videoWidth) {
     const vw=vid.videoWidth, vh=vid.videoHeight;
     const cw=lC.width, ch=lC.height;
-    const scale=Math.max(cw/vw, ch/vh);
+    const scale=Math.max(cw/vw,ch/vh);
     const dw=vw*scale, dh=vh*scale;
     const bx=(cw-dw)/2, by=(ch-dh)/2;
-
-    // Draw to offscreen, apply effect, copy to both eyes
     oX.clearRect(0,0,cw,ch);
-    oX.drawImage(vid, bx, by, dw, dh);
-    applyEffect(oX, cw, ch);
-
+    oX.drawImage(vid,bx,by,dw,dh);
+    applyEffect(oX,cw,ch);
     lX.clearRect(0,0,cw,ch);
-    lX.drawImage(off, -ipd/2, 0);
+    lX.drawImage(off,-ipd/2,0);
     rX.clearRect(0,0,cw,ch);
-    rX.drawImage(off, ipd/2, 0);
+    rX.drawImage(off,ipd/2,0);
   }
-  animId = requestAnimationFrame(render);
+  animId=requestAnimationFrame(render);
 }
 
 function stopCamera() {
   if (animId) { cancelAnimationFrame(animId); animId=null; }
   if (stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; }
-  window.removeEventListener('resize', resizeCanvases);
+  window.removeEventListener('resize',resizeCanvases);
 }
 
 function showError(msg) {
