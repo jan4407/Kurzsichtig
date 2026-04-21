@@ -7,74 +7,98 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Fehlsichtigkeit VR</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; width: 100vw; height: 100vh; }
-  #start-screen {
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    height: 100vh; gap: 16px; padding: 24px; text-align: center;
-  }
-  #start-screen h1 { font-size: 22px; font-weight: 500; }
-  #start-screen p { font-size: 14px; color: #aaa; max-width: 320px; line-height: 1.6; }
-  .add-hint {
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.2);
-    border-radius: 10px;
-    padding: 12px 16px;
-    font-size: 13px;
-    color: #ccc;
-    max-width: 320px;
-    line-height: 1.6;
-  }
-  .add-hint strong { color: #fff; }
-  #start-btn {
-    margin-top: 8px; padding: 14px 36px; font-size: 16px;
-    background: #fff; color: #000; border: none; border-radius: 8px;
-    cursor: pointer; font-weight: 500;
-  }
-  #vr-container { display: none; width: 100vw; height: 100vh; position: relative; }
-  #vr-container.active { display: flex; }
-  canvas#left, canvas#right { width: 50%; height: 100%; display: block; }
-  #divider {
-    position: absolute; left: 50%; top: 0; width: 3px; height: 100%;
-    background: #000; transform: translateX(-50%); z-index: 10;
-  }
-  #top-controls {
-    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-    display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 20;
-  }
-  .ctrl-row {
-    display: flex; align-items: center; gap: 10px;
-    background: rgba(0,0,0,0.55); padding: 6px 14px; border-radius: 20px;
-    backdrop-filter: blur(4px);
-  }
-  .ctrl-row label { font-size: 12px; color: #ccc; white-space: nowrap; }
-  .ctrl-row input[type=range] { width: 110px; accent-color: #fff; }
-  .ctrl-row span { font-size: 12px; color: #fff; min-width: 36px; text-align: right; }
-  #focus-row { opacity: 0.4; }
-  #focus-row.supported { opacity: 1; }
-  #bottom-controls {
-    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 10px; z-index: 20;
-  }
-  .ctrl-btn {
-    padding: 8px 16px; font-size: 13px;
-    background: rgba(255,255,255,0.15); color: #fff;
-    border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; cursor: pointer;
-  }
-  #error-msg {
-    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
-    color: #f88; font-size: 14px; text-align: center; padding: 16px; display: none;
-  }
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#000; color:#fff; font-family:sans-serif; overflow:hidden; width:100vw; height:100vh; }
+
+#start-screen {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height:100vh; gap:16px; padding:24px; text-align:center;
+}
+#start-screen h1 { font-size:22px; font-weight:500; }
+#start-screen p { font-size:14px; color:#aaa; max-width:320px; line-height:1.6; }
+.add-hint {
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2);
+  border-radius:10px; padding:12px 16px; font-size:13px; color:#ccc;
+  max-width:320px; line-height:1.6;
+}
+.add-hint strong { color:#fff; }
+#start-btn {
+  margin-top:8px; padding:14px 36px; font-size:16px;
+  background:#fff; color:#000; border:none; border-radius:8px; cursor:pointer; font-weight:500;
+}
+
+#vr-container { display:none; width:100vw; height:100vh; position:relative; }
+#vr-container.active { display:flex; }
+canvas { width:50%; height:100%; display:block; }
+#divider {
+  position:absolute; left:50%; top:0; width:3px; height:100%;
+  background:#000; transform:translateX(-50%); z-index:10;
+}
+
+/* Menu toggle button at ~72% height */
+#menu-btn {
+  position:absolute; left:50%; top:72%; transform:translate(-50%,-50%);
+  z-index:30; background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.3);
+  color:#fff; font-size:13px; padding:8px 22px; border-radius:20px; cursor:pointer;
+  backdrop-filter:blur(4px); white-space:nowrap;
+}
+
+/* Slide-up menu panel */
+#menu-panel {
+  position:absolute; bottom:0; left:0; right:0; z-index:40;
+  background:rgba(10,10,10,0.92); backdrop-filter:blur(8px);
+  border-top:1px solid rgba(255,255,255,0.15);
+  padding:20px 20px 28px;
+  transform:translateY(100%);
+  transition:transform 0.3s ease;
+}
+#menu-panel.open { transform:translateY(0); }
+
+.menu-close {
+  position:absolute; top:12px; right:16px;
+  background:none; border:none; color:#aaa; font-size:20px; cursor:pointer; line-height:1;
+}
+
+.menu-section { margin-bottom:18px; }
+.menu-section:last-child { margin-bottom:0; }
+.menu-label { font-size:11px; color:#888; text-transform:uppercase; letter-spacing:0.08em; margin-bottom:10px; }
+
+/* Mode buttons */
+.mode-row { display:flex; gap:8px; flex-wrap:wrap; }
+.mode-btn {
+  padding:7px 14px; font-size:13px; border-radius:16px; cursor:pointer;
+  background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.2); color:#ccc;
+  transition:background 0.15s, color 0.15s;
+}
+.mode-btn.active { background:#fff; color:#000; border-color:#fff; }
+
+/* Sliders */
+.slider-row { display:flex; align-items:center; gap:10px; }
+.slider-row label { font-size:13px; color:#ccc; min-width:60px; }
+.slider-row input[type=range] { flex:1; accent-color:#fff; }
+.slider-row span { font-size:13px; color:#fff; min-width:38px; text-align:right; }
+
+/* Bottom action row */
+.action-row { display:flex; gap:10px; margin-top:4px; }
+.action-btn {
+  flex:1; padding:9px; font-size:13px; border-radius:8px; cursor:pointer;
+  background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.25); color:#fff;
+}
+
+#error-msg {
+  position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+  color:#f88; font-size:14px; text-align:center; padding:16px; display:none;
+}
 </style>
 </head>
 <body>
 
 <div id="start-screen">
   <h1>Fehlsichtigkeits-Viewer</h1>
-  <p>Kamera-Viewer für Google Cardboard. Autofokus deaktiviert – Unschärfe entsteht durch die vorgehaltene Linse.</p>
+  <p>Kamera-Viewer für Google Cardboard mit digitaler Fehlsichtigkeits-Simulation.</p>
   <div class="add-hint">
-    Für echten Vollbild-Modus (ohne Browserleiste):<br>
-    Tippe auf <strong>Teilen</strong> → <strong>„Zum Home-Bildschirm"</strong> → App von dort starten.
+    Für echten Vollbild-Modus:<br>
+    <strong>Teilen → „Zum Home-Bildschirm"</strong> → App von dort starten.
   </div>
   <button id="start-btn">Kamera starten</button>
 </div>
@@ -84,28 +108,49 @@
   <div id="divider"></div>
   <canvas id="right"></canvas>
 
-  <div id="top-controls">
-    <div class="ctrl-row" id="ipd-row">
-      <label>Versatz (IPD)</label>
-      <input type="range" id="ipd-slider" min="0" max="80" value="30" step="1">
-      <span id="ipd-val">30px</span>
-    </div>
-    <div class="ctrl-row" id="focus-row">
-      <label>Fokus</label>
-      <input type="range" id="focus-slider" min="0" max="100" value="50" step="1">
-      <span id="focus-val">50%</span>
-    </div>
-  </div>
+  <button id="menu-btn">⚙ Einstellungen</button>
 
-  <div id="bottom-controls">
-    <button class="ctrl-btn" id="flip-btn">Kamera wechseln</button>
-    <button class="ctrl-btn" id="exit-btn">Beenden</button>
+  <div id="menu-panel">
+    <button class="menu-close" id="menu-close">✕</button>
+
+    <div class="menu-section">
+      <div class="menu-label">Fehlsichtigkeit</div>
+      <div class="mode-row">
+        <button class="mode-btn active" data-mode="normal">Normal</button>
+        <button class="mode-btn" data-mode="myopie">Myopie</button>
+        <button class="mode-btn" data-mode="hyperopie">Hyperopie</button>
+        <button class="mode-btn" data-mode="astigmatismus">Astigmatismus</button>
+        <button class="mode-btn" data-mode="katarakt">Katarakt</button>
+      </div>
+    </div>
+
+    <div class="menu-section">
+      <div class="menu-label">Stärke</div>
+      <div class="slider-row">
+        <label>Stärke</label>
+        <input type="range" id="strength-slider" min="0" max="100" value="50" step="1">
+        <span id="strength-val">50%</span>
+      </div>
+      <div class="slider-row" style="margin-top:10px;">
+        <label>Versatz</label>
+        <input type="range" id="ipd-slider" min="0" max="80" value="30" step="1">
+        <span id="ipd-val">30px</span>
+      </div>
+    </div>
+
+    <div class="menu-section">
+      <div class="action-row">
+        <button class="action-btn" id="flip-btn">Kamera wechseln</button>
+        <button class="action-btn" id="exit-btn">Beenden</button>
+      </div>
+    </div>
   </div>
 
   <div id="error-msg"></div>
 </div>
 
 <video id="vid" autoplay playsinline muted style="display:none;"></video>
+<canvas id="offscreen" style="display:none;"></canvas>
 
 <script>
 const vid = document.getElementById('vid');
@@ -113,105 +158,178 @@ const lC = document.getElementById('left');
 const rC = document.getElementById('right');
 const lX = lC.getContext('2d');
 const rX = rC.getContext('2d');
+const off = document.getElementById('offscreen');
+const oX = off.getContext('2d');
+
+let stream=null, facingMode='environment', ipd=30, animId=null;
+let mode='normal', strength=50;
+
+// Menu toggle
+const menuBtn = document.getElementById('menu-btn');
+const menuPanel = document.getElementById('menu-panel');
+menuBtn.onclick = () => menuPanel.classList.toggle('open');
+document.getElementById('menu-close').onclick = () => menuPanel.classList.remove('open');
+
+// Mode buttons
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    mode = btn.dataset.mode;
+  };
+});
+
+const strengthSlider = document.getElementById('strength-slider');
+const strengthVal = document.getElementById('strength-val');
+strengthSlider.oninput = () => { strength = +strengthSlider.value; strengthVal.textContent = strength + '%'; };
+
 const ipdSlider = document.getElementById('ipd-slider');
 const ipdVal = document.getElementById('ipd-val');
-const focusSlider = document.getElementById('focus-slider');
-const focusVal = document.getElementById('focus-val');
-const focusRow = document.getElementById('focus-row');
-const errMsg = document.getElementById('error-msg');
-
-let stream = null, facingMode = 'environment', ipd = 30, animId = null;
-let focusCaps = null, track = null;
-
 ipdSlider.oninput = () => { ipd = +ipdSlider.value; ipdVal.textContent = ipd + 'px'; };
 
-focusSlider.oninput = async () => {
-  focusVal.textContent = focusSlider.value + '%';
-  if (!track || !focusCaps || !focusCaps.focusDistance) return;
-  const min = focusCaps.focusDistance.min;
-  const max = focusCaps.focusDistance.max;
-  const dist = min + (focusSlider.value / 100) * (max - min);
-  try { await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: dist }] }); } catch(e) {}
-};
-
 document.getElementById('start-btn').onclick = () => startCamera();
-document.getElementById('flip-btn').onclick = () => { facingMode = facingMode === 'environment' ? 'user' : 'environment'; startCamera(); };
+document.getElementById('flip-btn').onclick = () => {
+  facingMode = facingMode==='environment' ? 'user' : 'environment';
+  menuPanel.classList.remove('open');
+  startCamera();
+};
 document.getElementById('exit-btn').onclick = () => {
   stopCamera();
   document.getElementById('vr-container').classList.remove('active');
-  document.getElementById('start-screen').style.display = 'flex';
+  document.getElementById('start-screen').style.display='flex';
+  menuPanel.classList.remove('open');
 };
 
 async function startCamera() {
   stopCamera();
-  errMsg.style.display = 'none';
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      video:{ facingMode, width:{ideal:1920}, height:{ideal:1080} }
     });
-  } catch(e) {
-    showError('Kamera nicht verfügbar: ' + e.message); return;
-  }
-
+  } catch(e) { showError('Kamera nicht verfügbar: '+e.message); return; }
   vid.srcObject = stream;
-  track = stream.getVideoTracks()[0];
-
-  if (track.getCapabilities) {
-    focusCaps = track.getCapabilities();
-    if (focusCaps.focusMode && focusCaps.focusMode.includes('manual')) {
-      focusRow.classList.add('supported');
-      try {
-        const min = focusCaps.focusDistance ? focusCaps.focusDistance.min : 0;
-        await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: min }] });
-      } catch(e) {}
-    }
-  }
-
   await new Promise(r => { vid.onloadedmetadata = r; });
   vid.play();
-
-  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('start-screen').style.display='none';
   document.getElementById('vr-container').classList.add('active');
-
   if (screen.orientation && screen.orientation.lock) {
     try { await screen.orientation.lock('landscape'); } catch(e) {}
   }
-
   resizeCanvases();
   window.addEventListener('resize', resizeCanvases);
   render();
 }
 
 function resizeCanvases() {
-  const w = window.innerWidth / 2, h = window.innerHeight;
-  lC.width = w; lC.height = h; rC.width = w; rC.height = h;
+  const w = window.innerWidth/2, h = window.innerHeight;
+  lC.width=w; lC.height=h; rC.width=w; rC.height=h;
+  off.width=w; off.height=h;
+}
+
+function applyEffect(ctx, w, h) {
+  if (mode==='normal' || strength===0) return;
+  const s = strength/100;
+
+  if (mode==='myopie') {
+    // Uniform blur, stronger with strength
+    const radius = Math.round(s * 18);
+    stackBlur(ctx, w, h, radius);
+  }
+  else if (mode==='hyperopie') {
+    // Blur center, leave edges sharper via radial gradient overlay
+    const radius = Math.round(s * 14);
+    stackBlur(ctx, w, h, radius);
+    // lighten center slightly to mimic near blur
+    const g = ctx.createRadialGradient(w/2,h/2,0, w/2,h/2,Math.min(w,h)*0.5);
+    g.addColorStop(0, `rgba(255,255,255,${s*0.18})`);
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
+  }
+  else if (mode==='astigmatismus') {
+    // Directional blur: horizontal smear
+    const radius = Math.round(s * 16);
+    stackBlurH(ctx, w, h, radius);
+  }
+  else if (mode==='katarakt') {
+    // Blur + milky white veil + contrast reduction
+    const radius = Math.round(s * 12);
+    stackBlur(ctx, w, h, radius);
+    ctx.fillStyle = `rgba(220,210,190,${s*0.45})`;
+    ctx.fillRect(0,0,w,h);
+  }
+}
+
+// Minimal stack blur (box blur approximation, 3 passes)
+function stackBlur(ctx, w, h, r) {
+  if (r < 1) return;
+  for (let i=0; i<3; i++) {
+    boxBlur(ctx, w, h, r, false);
+    boxBlur(ctx, w, h, r, true);
+  }
+}
+function stackBlurH(ctx, w, h, r) {
+  if (r < 1) return;
+  for (let i=0; i<3; i++) boxBlur(ctx, w, h, r*2, false);
+}
+
+function boxBlur(ctx, w, h, r, vertical) {
+  const d = ctx.getImageData(0,0,w,h);
+  const src = new Uint8ClampedArray(d.data);
+  const data = d.data;
+  const len = vertical ? h : w;
+  const stride = vertical ? w*4 : 4;
+  const step = vertical ? 4 : w*4;
+  const size = 2*r+1;
+
+  for (let i=0; i < (vertical ? w : h); i++) {
+    let ri=0, gi=0, bi=0, cnt=0;
+    const base = vertical ? i*4 : i*w*4;
+    for (let j=-r; j<=r; j++) {
+      const idx = base + Math.max(0,Math.min(len-1,j))*stride;
+      ri+=src[idx]; gi+=src[idx+1]; bi+=src[idx+2]; cnt++;
+    }
+    for (let j=0; j<len; j++) {
+      const idx = base + j*stride;
+      data[idx]=ri/cnt; data[idx+1]=gi/cnt; data[idx+2]=bi/cnt;
+      const add = base + Math.min(len-1,j+r+1)*stride;
+      const rem = base + Math.max(0,j-r)*stride;
+      ri+=src[add]-src[rem]; gi+=src[add+1]-src[rem+1]; bi+=src[add+2]-src[rem+2];
+    }
+  }
+  ctx.putImageData(d,0,0);
 }
 
 function render() {
   if (vid.videoWidth) {
-    const vw = vid.videoWidth, vh = vid.videoHeight;
-    const cw = lC.width, ch = lC.height;
-    const scale = Math.max(cw / vw, ch / vh);
-    const dw = vw * scale, dh = vh * scale;
-    const bx = (cw - dw) / 2, by = (ch - dh) / 2;
-    lX.clearRect(0, 0, cw, ch);
-    lX.drawImage(vid, bx - ipd / 2, by, dw, dh);
-    rX.clearRect(0, 0, cw, ch);
-    rX.drawImage(vid, bx + ipd / 2, by, dw, dh);
+    const vw=vid.videoWidth, vh=vid.videoHeight;
+    const cw=lC.width, ch=lC.height;
+    const scale=Math.max(cw/vw, ch/vh);
+    const dw=vw*scale, dh=vh*scale;
+    const bx=(cw-dw)/2, by=(ch-dh)/2;
+
+    // Draw to offscreen, apply effect, copy to both eyes
+    oX.clearRect(0,0,cw,ch);
+    oX.drawImage(vid, bx, by, dw, dh);
+    applyEffect(oX, cw, ch);
+
+    lX.clearRect(0,0,cw,ch);
+    lX.drawImage(off, -ipd/2, 0);
+    rX.clearRect(0,0,cw,ch);
+    rX.drawImage(off, ipd/2, 0);
   }
   animId = requestAnimationFrame(render);
 }
 
 function stopCamera() {
-  if (animId) { cancelAnimationFrame(animId); animId = null; }
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if (animId) { cancelAnimationFrame(animId); animId=null; }
+  if (stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; }
   window.removeEventListener('resize', resizeCanvases);
 }
 
 function showError(msg) {
-  document.getElementById('start-screen').style.display = 'none';
+  document.getElementById('start-screen').style.display='none';
   document.getElementById('vr-container').classList.add('active');
-  errMsg.textContent = msg; errMsg.style.display = 'block';
+  errMsg.textContent=msg; errMsg.style.display='block';
 }
 </script>
 </body>
