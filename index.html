@@ -9,6 +9,7 @@
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { background:#000; color:#fff; font-family:sans-serif; overflow:hidden; width:100vw; height:100vh; }
+
 #start-screen {
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   height:100vh; gap:16px; padding:24px; text-align:center;
@@ -25,6 +26,7 @@ body { background:#000; color:#fff; font-family:sans-serif; overflow:hidden; wid
   margin-top:8px; padding:14px 36px; font-size:16px;
   background:#fff; color:#000; border:none; border-radius:8px; cursor:pointer; font-weight:500;
 }
+
 #vr-container { display:none; width:100vw; height:100vh; position:relative; }
 #vr-container.active { display:flex; }
 canvas { width:50%; height:100%; display:block; }
@@ -32,12 +34,31 @@ canvas { width:50%; height:100%; display:block; }
   position:absolute; left:50%; top:0; width:3px; height:100%;
   background:#000; transform:translateX(-50%); z-index:10;
 }
-#menu-btn {
+
+/* Durchschalt-Knopf oben ~28% */
+#step-btn {
   position:absolute; left:50%; top:28%; transform:translate(-50%,-50%);
+  z-index:30;
+  background:rgba(0,0,0,0.65); border:1.5px solid rgba(255,255,255,0.5);
+  color:#fff; border-radius:24px; cursor:pointer;
+  display:flex; flex-direction:column; align-items:center;
+  padding:10px 28px 8px;
+  backdrop-filter:blur(4px);
+  min-width:120px;
+  user-select:none;
+}
+#step-label { font-size:11px; color:#aaa; letter-spacing:0.06em; margin-bottom:2px; }
+#step-value { font-size:22px; font-weight:500; line-height:1.1; }
+#step-hint { font-size:10px; color:#777; margin-top:3px; }
+
+/* Einstellungs-Knopf unten ~72% */
+#menu-btn {
+  position:absolute; left:50%; top:72%; transform:translate(-50%,-50%);
   z-index:30; background:rgba(0,0,0,0.55); border:1px solid rgba(255,255,255,0.3);
   color:#fff; font-size:13px; padding:8px 22px; border-radius:20px; cursor:pointer;
   backdrop-filter:blur(4px); white-space:nowrap;
 }
+
 #menu-panel {
   position:absolute; bottom:0; left:0; right:0; z-index:40;
   background:rgba(10,10,10,0.92); backdrop-filter:blur(8px);
@@ -49,7 +70,7 @@ canvas { width:50%; height:100%; display:block; }
 #menu-panel.open { transform:translateY(0); }
 .menu-close {
   position:absolute; top:12px; right:16px;
-  background:none; border:none; color:#aaa; font-size:20px; cursor:pointer; line-height:1;
+  background:none; border:none; color:#aaa; font-size:20px; cursor:pointer;
 }
 .menu-section { margin-bottom:18px; }
 .menu-section:last-child { margin-bottom:0; }
@@ -64,8 +85,8 @@ canvas { width:50%; height:100%; display:block; }
 .slider-row { display:flex; align-items:center; gap:10px; }
 .slider-row label { font-size:13px; color:#ccc; min-width:60px; }
 .slider-row input[type=range] { flex:1; accent-color:#fff; }
-.slider-row span { font-size:13px; color:#fff; min-width:60px; text-align:right; }
-.action-row { display:flex; gap:10px; margin-top:4px; }
+.slider-row span { font-size:13px; color:#fff; min-width:50px; text-align:right; }
+.action-row { display:flex; gap:10px; }
 .action-btn {
   flex:1; padding:9px; font-size:13px; border-radius:8px; cursor:pointer;
   background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.25); color:#fff;
@@ -93,6 +114,14 @@ canvas { width:50%; height:100%; display:block; }
   <div id="divider"></div>
   <canvas id="right"></canvas>
 
+  <!-- Durchschalt-Knopf -->
+  <div id="step-btn">
+    <span id="step-label">NORMAL</span>
+    <span id="step-value">0 dpt</span>
+    <span id="step-hint">tippen → +0,5 dpt</span>
+  </div>
+
+  <!-- Einstellungen -->
   <button id="menu-btn">⚙ Einstellungen</button>
 
   <div id="menu-panel">
@@ -110,13 +139,8 @@ canvas { width:50%; height:100%; display:block; }
     </div>
 
     <div class="menu-section">
-      <div class="menu-label">Stärke</div>
+      <div class="menu-label">IPD-Versatz</div>
       <div class="slider-row">
-        <label>Stärke</label>
-        <input type="range" id="strength-slider" min="0" max="100" value="50" step="1">
-        <span id="strength-val">—</span>
-      </div>
-      <div class="slider-row" style="margin-top:10px;">
         <label>Versatz</label>
         <input type="range" id="ipd-slider" min="0" max="80" value="30" step="1">
         <span id="ipd-val">30 px</span>
@@ -139,60 +163,65 @@ canvas { width:50%; height:100%; display:block; }
 
 <script>
 const vid = document.getElementById('vid');
-const lC = document.getElementById('left');
-const rC = document.getElementById('right');
-const lX = lC.getContext('2d');
-const rX = rC.getContext('2d');
-const off = document.getElementById('offscreen');
-const oX = off.getContext('2d');
+const lC = document.getElementById('left'), rC = document.getElementById('right');
+const lX = lC.getContext('2d'), rX = rC.getContext('2d');
+const off = document.getElementById('offscreen'), oX = off.getContext('2d');
 const errMsg = document.getElementById('error-msg');
+const stepBtn = document.getElementById('step-btn');
+const stepLabel = document.getElementById('step-label');
+const stepValue = document.getElementById('step-value');
+const stepHint = document.getElementById('step-hint');
 
 let stream=null, facingMode='environment', ipd=30, animId=null;
-let mode='normal', strength=50;
+let mode='normal', dpt=0;
 
-// Dioptrienbezeichnung je Modus
-function dptLabel(s) {
-  const t = s/100;
-  if (mode==='myopie')        return (-0.5 - t*5.5).toFixed(1) + ' dpt';
-  if (mode==='hyperopie')     return '+' + (0.5 + t*3.5).toFixed(1) + ' dpt';
-  if (mode==='astigmatismus') return 'Zyl. ' + (0.5 + t*3.5).toFixed(1) + ' dpt';
-  if (mode==='katarakt')      return 'Grad ' + (1 + t*3).toFixed(1);
-  return '—';
+// Maximale dpt je Modus
+const maxDpt = { normal:0, myopie:8, hyperopie:6, astigmatismus:6, katarakt:4 };
+// Vorzeichen/Label je Modus
+const modeSign = { myopie:'-', hyperopie:'+', astigmatismus:'Zyl. ', katarakt:'Grad ' };
+const modeNames = { normal:'NORMAL', myopie:'MYOPIE', hyperopie:'HYPEROPIE', astigmatismus:'ASTIGM.', katarakt:'KATARAKT' };
+
+function formatDpt(d) {
+  if (mode==='normal') return '0 dpt';
+  const sign = modeSign[mode] || '';
+  const unit = (mode==='katarakt') ? '' : ' dpt';
+  return sign + d.toFixed(1) + unit;
 }
 
-const strengthVal = document.getElementById('strength-val');
-const strengthSlider = document.getElementById('strength-slider');
-const ipdVal = document.getElementById('ipd-val');
-const ipdSlider = document.getElementById('ipd-slider');
-
-function updateStrengthLabel() {
-  strengthVal.textContent = mode==='normal' ? '—' : dptLabel(strength);
+function updateStepBtn() {
+  stepLabel.textContent = modeNames[mode] || mode.toUpperCase();
+  stepValue.textContent = formatDpt(dpt);
+  const mx = maxDpt[mode] || 0;
+  stepHint.textContent = (mode==='normal') ? 'Modus wählen' :
+    (dpt >= mx) ? 'Maximum erreicht' : 'tippen → +0,5 dpt';
 }
 
-strengthSlider.oninput = () => {
-  strength = +strengthSlider.value;
-  updateStrengthLabel();
+stepBtn.onclick = () => {
+  if (mode==='normal') return;
+  const mx = maxDpt[mode] || 0;
+  dpt = dpt >= mx ? 0 : Math.min(mx, dpt + 0.5);
+  updateStepBtn();
 };
 
-ipdSlider.oninput = () => {
-  ipd = +ipdSlider.value;
-  ipdVal.textContent = ipd + ' px';
-};
-
+// Mode buttons
 document.querySelectorAll('.mode-btn').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     mode = btn.dataset.mode;
-    updateStrengthLabel();
+    dpt = 0;
+    updateStepBtn();
   };
 });
+
+const ipdSlider = document.getElementById('ipd-slider');
+const ipdVal = document.getElementById('ipd-val');
+ipdSlider.oninput = () => { ipd = +ipdSlider.value; ipdVal.textContent = ipd + ' px'; };
 
 document.getElementById('menu-btn').onclick = () =>
   document.getElementById('menu-panel').classList.toggle('open');
 document.getElementById('menu-close').onclick = () =>
   document.getElementById('menu-panel').classList.remove('open');
-
 document.getElementById('start-btn').onclick = () => startCamera();
 document.getElementById('flip-btn').onclick = () => {
   facingMode = facingMode==='environment' ? 'user' : 'environment';
@@ -223,96 +252,83 @@ async function startCamera() {
   }
   resizeCanvases();
   window.addEventListener('resize', resizeCanvases);
+  updateStepBtn();
   render();
 }
 
 function resizeCanvases() {
   const w=window.innerWidth/2, h=window.innerHeight;
-  lC.width=w; lC.height=h; rC.width=w; rC.height=h;
-  off.width=w; off.height=h;
+  lC.width=w; lC.height=h; rC.width=w; rC.height=h; off.width=w; off.height=h;
+}
+
+// dpt → blur-Radius (0 dpt = kein Blur, linear skaliert)
+function dptToRadius(base) {
+  const mx = maxDpt[mode] || 1;
+  return Math.round((dpt / mx) * base);
 }
 
 function applyEffect(ctx, w, h) {
-  if (mode==='normal' || strength===0) return;
-  const s = strength/100;
+  if (mode==='normal' || dpt===0) return;
   if (mode==='myopie') {
-    stackBlur(ctx, w, h, Math.round(s*18));
+    stackBlur(ctx, w, h, dptToRadius(20));
   } else if (mode==='hyperopie') {
-    stackBlur(ctx, w, h, Math.round(s*14));
+    stackBlur(ctx, w, h, dptToRadius(16));
+    const s = dpt / (maxDpt.hyperopie||1);
     const g = ctx.createRadialGradient(w/2,h/2,0, w/2,h/2,Math.min(w,h)*0.5);
     g.addColorStop(0, `rgba(255,255,255,${s*0.18})`);
     g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle=g; ctx.fillRect(0,0,w,h);
   } else if (mode==='astigmatismus') {
-    stackBlurH(ctx, w, h, Math.round(s*16));
+    stackBlurH(ctx, w, h, dptToRadius(20));
   } else if (mode==='katarakt') {
-    stackBlur(ctx, w, h, Math.round(s*12));
-    ctx.fillStyle=`rgba(220,210,190,${s*0.45})`;
-    ctx.fillRect(0,0,w,h);
+    const s = dpt / (maxDpt.katarakt||1);
+    stackBlur(ctx, w, h, dptToRadius(14));
+    ctx.fillStyle=`rgba(220,210,190,${s*0.45})`; ctx.fillRect(0,0,w,h);
   }
 }
 
-function stackBlur(ctx, w, h, r) {
-  if (r<1) return;
-  for (let i=0;i<3;i++) { boxBlur(ctx,w,h,r,false); boxBlur(ctx,w,h,r,true); }
-}
-function stackBlurH(ctx, w, h, r) {
-  if (r<1) return;
-  for (let i=0;i<3;i++) boxBlur(ctx,w,h,r*2,false);
-}
-function boxBlur(ctx, w, h, r, vertical) {
-  const d = ctx.getImageData(0,0,w,h);
-  const src = new Uint8ClampedArray(d.data);
-  const data = d.data;
-  const len = vertical ? h : w;
-  const stride = vertical ? w*4 : 4;
-  for (let i=0; i<(vertical?w:h); i++) {
+function stackBlur(ctx,w,h,r){ if(r<1)return; for(let i=0;i<3;i++){boxBlur(ctx,w,h,r,false);boxBlur(ctx,w,h,r,true);} }
+function stackBlurH(ctx,w,h,r){ if(r<1)return; for(let i=0;i<3;i++)boxBlur(ctx,w,h,r*2,false); }
+function boxBlur(ctx,w,h,r,vert){
+  const d=ctx.getImageData(0,0,w,h), src=new Uint8ClampedArray(d.data), data=d.data;
+  const len=vert?h:w, stride=vert?w*4:4;
+  for(let i=0;i<(vert?w:h);i++){
     let ri=0,gi=0,bi=0;
-    const base = vertical ? i*4 : i*w*4;
-    for (let j=-r;j<=r;j++) {
-      const idx=base+Math.max(0,Math.min(len-1,j))*stride;
-      ri+=src[idx]; gi+=src[idx+1]; bi+=src[idx+2];
-    }
+    const base=vert?i*4:i*w*4;
+    for(let j=-r;j<=r;j++){const idx=base+Math.max(0,Math.min(len-1,j))*stride;ri+=src[idx];gi+=src[idx+1];bi+=src[idx+2];}
     const cnt=2*r+1;
-    for (let j=0;j<len;j++) {
+    for(let j=0;j<len;j++){
       const idx=base+j*stride;
-      data[idx]=ri/cnt; data[idx+1]=gi/cnt; data[idx+2]=bi/cnt;
-      const add=base+Math.min(len-1,j+r+1)*stride;
-      const rem=base+Math.max(0,j-r)*stride;
-      ri+=src[add]-src[rem]; gi+=src[add+1]-src[rem+1]; bi+=src[add+2]-src[rem+2];
+      data[idx]=ri/cnt;data[idx+1]=gi/cnt;data[idx+2]=bi/cnt;
+      const a=base+Math.min(len-1,j+r+1)*stride, rm=base+Math.max(0,j-r)*stride;
+      ri+=src[a]-src[rm];gi+=src[a+1]-src[rm+1];bi+=src[a+2]-src[rm+2];
     }
   }
   ctx.putImageData(d,0,0);
 }
 
-function render() {
-  if (vid.videoWidth) {
-    const vw=vid.videoWidth, vh=vid.videoHeight;
-    const cw=lC.width, ch=lC.height;
-    const scale=Math.max(cw/vw,ch/vh);
-    const dw=vw*scale, dh=vh*scale;
+function render(){
+  if(vid.videoWidth){
+    const vw=vid.videoWidth,vh=vid.videoHeight,cw=lC.width,ch=lC.height;
+    const scale=Math.max(cw/vw,ch/vh), dw=vw*scale, dh=vh*scale;
     const bx=(cw-dw)/2, by=(ch-dh)/2;
-    oX.clearRect(0,0,cw,ch);
-    oX.drawImage(vid,bx,by,dw,dh);
+    oX.clearRect(0,0,cw,ch); oX.drawImage(vid,bx,by,dw,dh);
     applyEffect(oX,cw,ch);
-    lX.clearRect(0,0,cw,ch);
-    lX.drawImage(off,-ipd/2,0);
-    rX.clearRect(0,0,cw,ch);
-    rX.drawImage(off,ipd/2,0);
+    lX.clearRect(0,0,cw,ch); lX.drawImage(off,-ipd/2,0);
+    rX.clearRect(0,0,cw,ch); rX.drawImage(off,ipd/2,0);
   }
   animId=requestAnimationFrame(render);
 }
 
-function stopCamera() {
-  if (animId) { cancelAnimationFrame(animId); animId=null; }
-  if (stream) { stream.getTracks().forEach(t=>t.stop()); stream=null; }
+function stopCamera(){
+  if(animId){cancelAnimationFrame(animId);animId=null;}
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
   window.removeEventListener('resize',resizeCanvases);
 }
-
-function showError(msg) {
+function showError(msg){
   document.getElementById('start-screen').style.display='none';
   document.getElementById('vr-container').classList.add('active');
-  errMsg.textContent=msg; errMsg.style.display='block';
+  errMsg.textContent=msg;errMsg.style.display='block';
 }
 </script>
 </body>
