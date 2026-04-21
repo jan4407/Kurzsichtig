@@ -3,107 +3,67 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Fehlsichtigkeit VR</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body {
-    background: #000;
-    color: #fff;
-    font-family: sans-serif;
-    overflow: hidden;
-    width: 100vw;
-    height: 100vh;
-  }
+  body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; width: 100vw; height: 100vh; }
   #start-screen {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    gap: 20px;
-    padding: 24px;
-    text-align: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100vh; gap: 16px; padding: 24px; text-align: center;
   }
   #start-screen h1 { font-size: 22px; font-weight: 500; }
   #start-screen p { font-size: 14px; color: #aaa; max-width: 320px; line-height: 1.6; }
-  #start-btn {
-    margin-top: 12px;
-    padding: 14px 36px;
-    font-size: 16px;
-    background: #fff;
-    color: #000;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-weight: 500;
-  }
-  #vr-container {
-    display: none;
-    width: 100vw;
-    height: 100vh;
-    position: relative;
-  }
-  #vr-container.active { display: flex; }
-  canvas#left, canvas#right {
-    width: 50%;
-    height: 100%;
-    display: block;
-  }
-  #divider {
-    position: absolute;
-    left: 50%;
-    top: 0;
-    width: 3px;
-    height: 100%;
-    background: #000;
-    transform: translateX(-50%);
-    z-index: 10;
-  }
-  #controls {
-    position: absolute;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 12px;
-    z-index: 20;
-  }
-  .ctrl-btn {
-    padding: 8px 18px;
+  .add-hint {
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 10px;
+    padding: 12px 16px;
     font-size: 13px;
-    background: rgba(255,255,255,0.15);
-    color: #fff;
-    border: 1px solid rgba(255,255,255,0.3);
-    border-radius: 6px;
-    cursor: pointer;
+    color: #ccc;
+    max-width: 320px;
+    line-height: 1.6;
+  }
+  .add-hint strong { color: #fff; }
+  #start-btn {
+    margin-top: 8px; padding: 14px 36px; font-size: 16px;
+    background: #fff; color: #000; border: none; border-radius: 8px;
+    cursor: pointer; font-weight: 500;
+  }
+  #vr-container { display: none; width: 100vw; height: 100vh; position: relative; }
+  #vr-container.active { display: flex; }
+  canvas#left, canvas#right { width: 50%; height: 100%; display: block; }
+  #divider {
+    position: absolute; left: 50%; top: 0; width: 3px; height: 100%;
+    background: #000; transform: translateX(-50%); z-index: 10;
+  }
+  #top-controls {
+    position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 8px; z-index: 20;
+  }
+  .ctrl-row {
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(0,0,0,0.55); padding: 6px 14px; border-radius: 20px;
     backdrop-filter: blur(4px);
   }
-  #ipd-control {
-    position: absolute;
-    top: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    z-index: 20;
-    background: rgba(0,0,0,0.5);
-    padding: 6px 14px;
-    border-radius: 20px;
+  .ctrl-row label { font-size: 12px; color: #ccc; white-space: nowrap; }
+  .ctrl-row input[type=range] { width: 110px; accent-color: #fff; }
+  .ctrl-row span { font-size: 12px; color: #fff; min-width: 36px; text-align: right; }
+  #focus-row { opacity: 0.4; }
+  #focus-row.supported { opacity: 1; }
+  #bottom-controls {
+    position: absolute; bottom: 14px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 10px; z-index: 20;
   }
-  #ipd-control label { font-size: 12px; color: #ccc; }
-  #ipd-slider { width: 100px; accent-color: #fff; }
-  #ipd-val { font-size: 12px; color: #fff; min-width: 28px; }
+  .ctrl-btn {
+    padding: 8px 16px; font-size: 13px;
+    background: rgba(255,255,255,0.15); color: #fff;
+    border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; cursor: pointer;
+  }
   #error-msg {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    color: #f88;
-    font-size: 14px;
-    text-align: center;
-    padding: 16px;
-    display: none;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    color: #f88; font-size: 14px; text-align: center; padding: 16px; display: none;
   }
 </style>
 </head>
@@ -111,8 +71,11 @@
 
 <div id="start-screen">
   <h1>Fehlsichtigkeits-Viewer</h1>
-  <p>Kamera wird als Side-by-Side Bild für Google Cardboard dargestellt. Autofokus ist deaktiviert – die Unschärfe entsteht durch die vorgehaltene Linse.</p>
-  <p style="font-size:12px;color:#777;">Bitte Kamerazugriff erlauben und Gerät im Querformat halten.</p>
+  <p>Kamera-Viewer für Google Cardboard. Autofokus deaktiviert – Unschärfe entsteht durch die vorgehaltene Linse.</p>
+  <div class="add-hint">
+    Für echten Vollbild-Modus (ohne Browserleiste):<br>
+    Tippe auf <strong>Teilen</strong> → <strong>„Zum Home-Bildschirm"</strong> → App von dort starten.
+  </div>
   <button id="start-btn">Kamera starten</button>
 </div>
 
@@ -120,15 +83,25 @@
   <canvas id="left"></canvas>
   <div id="divider"></div>
   <canvas id="right"></canvas>
-  <div id="ipd-control">
-    <label>Versatz</label>
-    <input type="range" id="ipd-slider" min="0" max="80" value="30" step="1">
-    <span id="ipd-val">30px</span>
+
+  <div id="top-controls">
+    <div class="ctrl-row" id="ipd-row">
+      <label>Versatz (IPD)</label>
+      <input type="range" id="ipd-slider" min="0" max="80" value="30" step="1">
+      <span id="ipd-val">30px</span>
+    </div>
+    <div class="ctrl-row" id="focus-row">
+      <label>Fokus</label>
+      <input type="range" id="focus-slider" min="0" max="100" value="50" step="1">
+      <span id="focus-val">50%</span>
+    </div>
   </div>
-  <div id="controls">
+
+  <div id="bottom-controls">
     <button class="ctrl-btn" id="flip-btn">Kamera wechseln</button>
     <button class="ctrl-btn" id="exit-btn">Beenden</button>
   </div>
+
   <div id="error-msg"></div>
 </div>
 
@@ -136,72 +109,60 @@
 
 <script>
 const vid = document.getElementById('vid');
-const leftCanvas = document.getElementById('left');
-const rightCanvas = document.getElementById('right');
-const lCtx = leftCanvas.getContext('2d');
-const rCtx = rightCanvas.getContext('2d');
+const lC = document.getElementById('left');
+const rC = document.getElementById('right');
+const lX = lC.getContext('2d');
+const rX = rC.getContext('2d');
 const ipdSlider = document.getElementById('ipd-slider');
 const ipdVal = document.getElementById('ipd-val');
+const focusSlider = document.getElementById('focus-slider');
+const focusVal = document.getElementById('focus-val');
+const focusRow = document.getElementById('focus-row');
 const errMsg = document.getElementById('error-msg');
 
-let stream = null;
-let facingMode = 'environment';
-let ipd = 30;
-let animId = null;
+let stream = null, facingMode = 'environment', ipd = 30, animId = null;
+let focusCaps = null, track = null;
 
-ipdSlider.addEventListener('input', () => {
-  ipd = parseInt(ipdSlider.value);
-  ipdVal.textContent = ipd + 'px';
-});
+ipdSlider.oninput = () => { ipd = +ipdSlider.value; ipdVal.textContent = ipd + 'px'; };
 
-document.getElementById('start-btn').addEventListener('click', () => {
-  startCamera();
-});
+focusSlider.oninput = async () => {
+  focusVal.textContent = focusSlider.value + '%';
+  if (!track || !focusCaps || !focusCaps.focusDistance) return;
+  const min = focusCaps.focusDistance.min;
+  const max = focusCaps.focusDistance.max;
+  const dist = min + (focusSlider.value / 100) * (max - min);
+  try { await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: dist }] }); } catch(e) {}
+};
 
-document.getElementById('flip-btn').addEventListener('click', () => {
-  facingMode = facingMode === 'environment' ? 'user' : 'environment';
-  startCamera();
-});
-
-document.getElementById('exit-btn').addEventListener('click', () => {
+document.getElementById('start-btn').onclick = () => startCamera();
+document.getElementById('flip-btn').onclick = () => { facingMode = facingMode === 'environment' ? 'user' : 'environment'; startCamera(); };
+document.getElementById('exit-btn').onclick = () => {
   stopCamera();
   document.getElementById('vr-container').classList.remove('active');
   document.getElementById('start-screen').style.display = 'flex';
-});
+};
 
 async function startCamera() {
   stopCamera();
   errMsg.style.display = 'none';
-
-  const constraints = {
-    video: {
-      facingMode: facingMode,
-      width: { ideal: 1920 },
-      height: { ideal: 1080 },
-      focusMode: 'manual',
-      advanced: [{ focusMode: 'manual', focusDistance: 0 }]
-    }
-  };
-
   try {
-    stream = await navigator.mediaDevices.getUserMedia(constraints);
-  } catch(e1) {
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode } });
-    } catch(e2) {
-      showError('Kamera konnte nicht gestartet werden: ' + e2.message);
-      return;
-    }
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }
+    });
+  } catch(e) {
+    showError('Kamera nicht verfügbar: ' + e.message); return;
   }
 
   vid.srcObject = stream;
+  track = stream.getVideoTracks()[0];
 
-  const track = stream.getVideoTracks()[0];
-  if (track && track.getCapabilities) {
-    const caps = track.getCapabilities();
-    if (caps.focusMode && caps.focusMode.includes('manual')) {
+  if (track.getCapabilities) {
+    focusCaps = track.getCapabilities();
+    if (focusCaps.focusMode && focusCaps.focusMode.includes('manual')) {
+      focusRow.classList.add('supported');
       try {
-        await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: caps.focusDistance ? caps.focusDistance.min : 0 }] });
+        const min = focusCaps.focusDistance ? focusCaps.focusDistance.min : 0;
+        await track.applyConstraints({ advanced: [{ focusMode: 'manual', focusDistance: min }] });
       } catch(e) {}
     }
   }
@@ -212,7 +173,7 @@ async function startCamera() {
   document.getElementById('start-screen').style.display = 'none';
   document.getElementById('vr-container').classList.add('active');
 
-  if ('orientation' in screen && screen.orientation.lock) {
+  if (screen.orientation && screen.orientation.lock) {
     try { await screen.orientation.lock('landscape'); } catch(e) {}
   }
 
@@ -222,35 +183,22 @@ async function startCamera() {
 }
 
 function resizeCanvases() {
-  const w = window.innerWidth / 2;
-  const h = window.innerHeight;
-  leftCanvas.width = w;
-  leftCanvas.height = h;
-  rightCanvas.width = w;
-  rightCanvas.height = h;
+  const w = window.innerWidth / 2, h = window.innerHeight;
+  lC.width = w; lC.height = h; rC.width = w; rC.height = h;
 }
 
 function render() {
-  if (!vid.videoWidth) { animId = requestAnimationFrame(render); return; }
-
-  const vw = vid.videoWidth;
-  const vh = vid.videoHeight;
-  const cw = leftCanvas.width;
-  const ch = leftCanvas.height;
-
-  const scale = Math.max(cw / vw, ch / vh);
-  const dw = vw * scale;
-  const dh = vh * scale;
-
-  const baseX = (cw - dw) / 2;
-  const baseY = (ch - dh) / 2;
-
-  lCtx.clearRect(0, 0, cw, ch);
-  lCtx.drawImage(vid, baseX - ipd / 2, baseY, dw, dh);
-
-  rCtx.clearRect(0, 0, cw, ch);
-  rCtx.drawImage(vid, baseX + ipd / 2, baseY, dw, dh);
-
+  if (vid.videoWidth) {
+    const vw = vid.videoWidth, vh = vid.videoHeight;
+    const cw = lC.width, ch = lC.height;
+    const scale = Math.max(cw / vw, ch / vh);
+    const dw = vw * scale, dh = vh * scale;
+    const bx = (cw - dw) / 2, by = (ch - dh) / 2;
+    lX.clearRect(0, 0, cw, ch);
+    lX.drawImage(vid, bx - ipd / 2, by, dw, dh);
+    rX.clearRect(0, 0, cw, ch);
+    rX.drawImage(vid, bx + ipd / 2, by, dw, dh);
+  }
   animId = requestAnimationFrame(render);
 }
 
@@ -263,8 +211,7 @@ function stopCamera() {
 function showError(msg) {
   document.getElementById('start-screen').style.display = 'none';
   document.getElementById('vr-container').classList.add('active');
-  errMsg.textContent = msg;
-  errMsg.style.display = 'block';
+  errMsg.textContent = msg; errMsg.style.display = 'block';
 }
 </script>
 </body>
